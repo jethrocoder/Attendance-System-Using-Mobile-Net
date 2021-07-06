@@ -1,7 +1,7 @@
 import tkinter as tk
 from utils import *
 from face_data_collect import *
-# from face_recognition import *
+from face_recognition import *
 from training import *
 
 window = tk.Tk()
@@ -42,8 +42,8 @@ takeImg = tk.Button(window, text="REGISTER",command= lambda arg1=txt, arg2=txt2 
 font=('Times New Roman', 15, ' bold '), state="disabled")
 takeImg.place(x=120, y=412-y_cord)
 
-# trackImg = tk.Button(window, text="MARK ATTENDANCE" , command=mark_attendance,fg="white"  ,bg="red"  ,width=30  ,height=2, activebackground = "pink" ,font=('Times New Roman', 15, ' bold '))
-# trackImg.place(x=780-x_cord, y=412-y_cord)
+trackImg = tk.Button(window, text="MARK ATTENDANCE" , command=lambda : mark_attendance(),fg="white"  ,bg="red"  ,width=30  ,height=2, activebackground = "pink" ,font=('Times New Roman', 15, ' bold '))
+trackImg.place(x=780-x_cord, y=412-y_cord)
 
 lbl3 = tk.Button(window, text="TRAIN",command= lambda : train(),width=20  ,fg="white"  ,bg="lightgreen"  ,height=2 ,font=('Times New Roman', 30, ' bold ')) 
 lbl3.place(x=120, y=570-y_cord)

@@ -5,11 +5,13 @@ import openpyxl
 import datetime
 import pandas as pd
 import tkinter as tk
+from tensorflow import expand_dims
 from keras.models import load_model
 import matplotlib.pyplot as plt
 from mtcnn.mtcnn import MTCNN
 from matplotlib.patches import Rectangle
 import pickle
+import numpy as np
 
 with open('./saved/id_to_roll_f.pkl','rb') as f:
 	try:
@@ -22,10 +24,13 @@ with open('./saved/roll_to_id_f.pkl','rb') as f:
 	except EOFError:
 		roll_to_id = {}
 
-model  = load_model('./saved/model/face_recogizer_model.hd5')
+model =load_model(
+    './saved/model/Facial_recogNet.h5')
+
 def face_recognizer(photo):
+	photo = np.expand_dims(photo,axis=0)
 	ypreds = model.predict(photo)
-	ypred = ypreds.argmax() 
+	ypred = np.argmax(ypreds) 
 	return ypred
 
 detector = MTCNN()
@@ -59,7 +64,7 @@ def mark_attendance():
 		cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
 		offset = 10
 		face_section = frame[y-offset:y+h+offset,x-offset:x+w+offset]
-		face_section = cv2.resize(face_section,(100,100))
+		face_section = cv2.resize(face_section,(224,224))
 		#Predicted Label (out)
 		out = face_recognizer(face_section)
 		#Display on the screen the name and rectangle around it

@@ -40,7 +40,8 @@ def register(txt,txt2):
 		offset = 10
 		cv2.rectangle(frame,(x-offset,y-offset),(x+w+offset,y+h+offset),(0,255,255),2)
 		face_section = frame[y-offset:y+h+offset,x-offset:x+w+offset]
-		face_section = cv2.resize(face_section,(100,100))
+		face_section = cv2.resize(face_section,(254,254))
+		face_section = cv2.cvtColor(face_section,cv2.COLOR_BGR2RGB)
 
 		skip += 1
 		face_data.append(face_section)
@@ -53,7 +54,7 @@ def register(txt,txt2):
 		if skip%100 == 0:
 			t.update()
 		key_pressed = cv2.waitKey(1) & 0xFF
-		if key_pressed == ord('q') or len(face_data) >= 100:
+		if key_pressed == ord('q') or len(face_data) >= 200:
 			t.destroy()
 			break
 
