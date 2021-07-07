@@ -35,17 +35,14 @@ def face_recognizer(photo):
 
 detector = MTCNN()
 def mark_attendance():
-	var = tk.messagebox.showinfo("Notification", "If Your Name Appears on your Face Press q!")
+	var = tk.messagebox.showinfo("Notification", "If Your Name Appears on your Face Press esc !")
 
 	#Init Camera
 	cap = cv2.VideoCapture(0)
-
 	# Face Detection
-	face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_alt.xml")
 	# Data Preparation
 
 	student_table=pd.read_csv('student_details.csv')
-	dataset_path = './train'
 
 	# Testing 
 	roll=""
@@ -56,26 +53,24 @@ def mark_attendance():
 
 		faces = detector.detect_faces(frame)
 		if len(faces)==0:
-			print('your face is not visible \n please get into the frame')
+			print('Your face is not visible , please get into the frame\n')
 			continue
 
 		offset = 10
 		x, y, w, h  = faces[0]['box']
-		cv2.rectangle(frame,(x,y),(x+w,y+h),(0,255,255),2)
-		offset = 10
+		cv2.rectangle(frame,(x-offset,y-offset),(x+w+offset,y+h+offset),(0,255,255),2)
 		face_section = frame[y-offset:y+h+offset,x-offset:x+w+offset]
 		face_section = cv2.resize(face_section,(224,224))
+		face_section = cv2.cvtColor(face_section,cv2.COLOR_BGR2RGB)
 		#Predicted Label (out)
 		out = face_recognizer(face_section)
 		#Display on the screen the name and rectangle around it
-		roll = id_to_roll[out]
+		roll = id_to_roll.get(out)
 		cv2.putText(frame,roll,(x,y-10),cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2,cv2.LINE_AA)
 		cv2.imshow("FRAME",frame)
-		
 		key = cv2.waitKey(1) & 0xFF
-		if key==ord('q'):
+		if key == 27:
 			break
-
 
 	# Marking attendance of student in attendance sheet
 	cap.release()

@@ -1,84 +1,145 @@
-import numpy as np
-import matplotlib.pyplot as plt
-import keras
-from keras.applications.xception import Xception, preprocess_input, decode_predictions
-from keras.preprocessing import image
-from keras.models import Model, Sequential , load_model
-from keras.preprocessing.sequence import pad_sequences
-from keras.utils import np_utils
-from keras.layers import Input, Dense, Dropout, Embedding, LSTM , Flatten , GlobalAveragePooling2D
-from keras.layers.merge import add
+from keras.applications.mobilenet import MobileNet
 from keras.optimizers import Adam
-from keras.layers import Conv2D, MaxPooling2D
-from keras.callbacks import ModelCheckpoint
+import pickle 
 import os
-import pickle
+import matplotlib.pyplot as plt
 
 def train():
-    model = Xception(weights="imagenet",input_shape=(100,100,3),include_top=False)
-    layer = GlobalAveragePooling2D()(model.layers[-1].output)
-    model = Model(inputs = [model.input],outputs=[layer])
-    for i in range(len(model.layers)):
-        model.layers[i].trainable = False
+	# MobileNet was designed to work on 224 x 224 pixel input images sizes
+	img_rows, img_cols = 224, 224 
 
-    def create_model(model,output_neurons):
-        output_layer = Dense(units=256,activation='relu')(model.layers[-1].output)
-        output_layer = Dropout(0.3)(output_layer)
-        output_layer = Dense(units=output_neurons,activation='softmax')(output_layer)
-        return Model(inputs = [model.input],outputs=[output_layer])
+	# Re-loads the MobileNet model without the top or FC layers
+	mobile = MobileNet(weights = 'imagenet', 
+		         include_top = False, 
+		         input_shape = (img_rows, img_cols, 3))
 
-    dataset_path = './train/'
-    output_neurons_cnt = len(os.listdir(dataset_path))
-    model = create_model(model,output_neurons_cnt)
-    adam = Adam()
-    model.compile(loss='categorical_crossentropy',optimizer=adam,metrics=['acc'])
-    model.summary()
-
-    for i in range(len(model.layers)):
-        print(model.layers[i].trainable,end= " ")
-
-    with open('./saved/id_to_roll_f.pkl','rb') as f:
-        try:
-            id_to_roll = pickle.load(f)
-        except EOFError:
-            id_to_roll = {}
-    with open('./saved/roll_to_id_f.pkl','rb') as f:
-        try:
-            roll_to_id = pickle.load(f)
-        except EOFError:
-            roll_to_id = {}
+	# Here we freeze the last 4 layers 
+	# Layers are set to trainable as True by default
+	
+	for i in range(len(mobile.layers) - 10):
+		mobile.layers[i].trainable = False
+	    
+	# Let's print our layers 
+	for (i,layer) in enumerate(mobile.layers):
+	    print(str(i) + " "+ layer.__class__.__name__, layer.trainable)
 
 
-    print(len(id_to_roll))
-    print(len(roll_to_id))
+	def lw(bottom_model, num_classes):
+	    """creates the top or head of the model that will be 
+	    placed ontop of the bottom layers"""
 
-    X = []
-    Y = []
-    for folder in os.listdir('./train'):
-        folder_path = './train/' + folder
-        for file in os.listdir(folder_path):
-            roll = folder
-            file_path = folder_path + '/' + file
-            img = image.load_img(file_path,target_size=(100,100))
-            img = image.img_to_array(img)
-            # img /= 256.0
-            X.append(img)
-            Y.append(roll_to_id[roll])
+	    top_model = bottom_model.output
+	    top_model = GlobalAveragePooling2D()(top_model)
+	    top_model = Dense(1024,activation='relu')(top_model)
+	    top_model = Dense(1024,activation='relu')(top_model)
+	    top_model = Dense(512,activation='relu')(top_model)
+	    top_model = Dense(num_classes,activation='softmax')(top_model)
+	    return top_model
 
-    Y = np_utils.to_categorical(Y)
-    X = np.array(X)
-    Y = np.array(Y)
-    print(X.shape)
-    print(Y.shape)
+	from keras.models import Sequential
+	from keras.layers import Dense, Dropout, Activation, Flatten, GlobalAveragePooling2D
+	from keras.layers import Conv2D, MaxPooling2D, ZeroPadding2D
+	from keras.layers.normalization import BatchNormalization
+	from keras.models import Model
 
-    checkpoint = ModelCheckpoint(
-        './saved/model/face_recogizer_model.hd5',
-        monitor="val_loss",
-        verbose=0,
-        save_best_only=True,
-        save_weights_only=False,
-        mode="auto",
-    )
+	# Set our number of classes
+	num_classes = len(os.listdir('train'))
 
-    model.fit(X,Y,shuffle=True,validation_split=0.2,epochs=100,callbacks= [checkpoint])
-        
+	FC_Head = lw(mobile, num_classes)
+
+	model = Model(inputs = mobile.input, outputs = FC_Head)
+
+	print(model.summary())
+
+
+	from keras.preprocessing.image import ImageDataGenerator
+
+	train_data_dir = 'train'
+	validation_data_dir = 'validate'
+
+	# Let's use some data augmentaiton 
+	train_datagen = ImageDataGenerator(
+	      rescale=1./255,
+	      rotation_range=45,
+	      width_shift_range=0.3,
+	      height_shift_range=0.3,
+	      horizontal_flip=True,
+	      fill_mode='nearest')
+	 
+	validation_datagen = ImageDataGenerator(rescale=1./255)
+	 
+	# set our batch size (typically on most mid tier systems we'll use 16-32)
+	batch_size = 32
+	 
+	train_generator = train_datagen.flow_from_directory(
+		train_data_dir,
+		target_size=(img_rows, img_cols),
+		batch_size=batch_size,
+		class_mode='categorical')
+	 
+	validation_generator = validation_datagen.flow_from_directory(
+		validation_data_dir,
+		target_size=(img_rows, img_cols),
+		batch_size=batch_size,
+		class_mode='categorical')
+
+	roll_to_id = train_generator.class_indices
+	id_to_roll = {val:key for key,val in roll_to_id.items()}
+	print(roll_to_id)
+	print(id_to_roll)
+
+	with open('./saved/id_to_roll_f.pkl','wb') as f:
+   	 	pickle.dump(id_to_roll, f)
+	with open('./saved/roll_to_id_f.pkl','wb') as f:
+		pickle.dump(roll_to_id, f)
+	
+
+	from keras.optimizers import RMSprop
+	from keras.callbacks import ModelCheckpoint, EarlyStopping
+
+		             
+	checkpoint = ModelCheckpoint("saved/model/Facial_recogNet.h5",
+		                     monitor="val_accuracy",
+		                     mode="auto",
+		                     save_best_only = True,
+		                     verbose=1)
+
+	earlystop = EarlyStopping(monitor = 'val_accuracy', 
+		                  min_delta = 0, 
+		                  patience = 3,
+		                  verbose = 1,
+		                  restore_best_weights = True)
+
+	# we put our call backs into a callback list
+	callbacks = [earlystop, checkpoint]
+
+	# We use a very small learning rate 
+	model.compile(loss = 'categorical_crossentropy',
+		      optimizer = Adam(learning_rate = 0.00001),
+		      metrics = ['accuracy'])
+
+	# Enter the number of training and validation samples here
+	nb_train_samples = 900
+	nb_validation_samples = 90
+
+	# We only train 1000 EPOCHS 
+	epochs = 1000
+	batch_size = 32
+
+	history = model.fit(
+	    train_generator,
+	    steps_per_epoch = nb_train_samples // batch_size,
+	    epochs = epochs,
+	    callbacks = callbacks,
+	    validation_data = validation_generator,
+	    validation_steps = nb_validation_samples // batch_size)
+
+	plt.plot(history.history['accuracy'],label='Training Accuracy')
+	plt.plot(history.history['val_accuracy'],label='Validation Accuracy')
+	plt.legend()
+	plt.show()
+	plt.plot(history.history['loss'],label='Loss')
+	plt.legend()	
+	plt.show()
+	
+
