@@ -12,9 +12,6 @@ def train():
 	mobile = MobileNet(weights = 'imagenet', 
 		         include_top = False, 
 		         input_shape = (img_rows, img_cols, 3))
-
-	# Here we freeze the last 4 layers 
-	# Layers are set to trainable as True by default
 	
 	for i in range(len(mobile.layers) - 10):
 		mobile.layers[i].trainable = False
@@ -106,7 +103,7 @@ def train():
 
 	earlystop = EarlyStopping(monitor = 'val_accuracy', 
 		                  min_delta = 0, 
-		                  patience = 3,
+		                  patience = 10,
 		                  verbose = 1,
 		                  restore_best_weights = True)
 
@@ -141,5 +138,3 @@ def train():
 	plt.plot(history.history['loss'],label='Loss')
 	plt.legend()	
 	plt.show()
-	
-
